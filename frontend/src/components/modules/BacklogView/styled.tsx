@@ -132,6 +132,34 @@ export const SprintActions = styled.div`
   margin-left: auto;
 `;
 
+export const SprintMemberAvatars = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+`;
+
+export const SprintMemberAvatar = styled.button<{ $active?: boolean }>`
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #6b778c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  border: 2px solid ${({ $active }) => ($active ? 'var(--jira-accent-blue, #2684ff)' : 'transparent')};
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:hover {
+    filter: brightness(1.08);
+  }
+`;
+
 export const StatusDots = styled.div`
   display: flex;
   gap: 3px;
@@ -161,8 +189,13 @@ export const SprintButton = styled.button<{ $primary?: boolean }>`
   font-weight: 500;
   cursor: pointer;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: ${({ $primary }) => ($primary ? 'var(--jira-blue-button-hover)' : 'var(--jira-card-hover)')};
+  }
+
+  &:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
   }
 `;
 
@@ -186,15 +219,18 @@ export const SprintBody = styled.div`
   border-top: 1px solid var(--jira-border);
 `;
 
-export const TaskRow = styled.div`
+export const TaskRow = styled.div<{ $isDragging?: boolean }>`
   display: flex;
   align-items: center;
   padding: 6px 12px;
   gap: 10px;
   border-bottom: 1px solid var(--jira-border);
-  cursor: pointer;
+  cursor: grab;
   transition: background 0.1s;
+  background: ${({ $isDragging }) => ($isDragging ? 'var(--jira-card-hover)' : 'transparent')};
+  box-shadow: ${({ $isDragging }) => ($isDragging ? '0 2px 8px rgba(0,0,0,0.25)' : 'none')};
 
+  &:active { cursor: grabbing; }
   &:hover { background: var(--jira-card-hover); }
   &:last-child { border-bottom: none; }
 `;

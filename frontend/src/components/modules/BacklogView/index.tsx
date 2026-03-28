@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  DropResult,
+} from '@hello-pangea/dnd';
 import {
   BacklogContainer, BacklogToolbar, SearchInput, SearchIconSmall,
   AvatarFilter, FilterBtn, ToolbarRight,
@@ -10,14 +16,27 @@ import {
   TaskRow, TaskTypeIcon, TaskId, TaskTitle,
   TaskStatusBadge, TaskDueDate, TaskAssignee,
   CreateItemRow, CreateItemButton, EmptySprintMessage, BottomStats,
+  SprintMemberAvatars, SprintMemberAvatar,
 } from './styled';
-import { BACKLOG_LABELS } from '@/labels/backlogLabels';
 import { useThemeStore } from '@/stores/themeStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSprintStore } from '@/stores/sprintStore';
 import { getLabel } from '@/i18n/translator';
 import { getInitials, formatDateShort, formatDateRange, getStatusBgColor, getTaskTypeIcon } from '@/utils/helpers';
-import { ISprint, ITask } from '@/types/task.types';
+import { ITask, ITaskUser } from '@/types/task.types';
+
+const BACKLOG_DROPPABLE_ID = 'backlog';
+
+const sprintDroppableId = (sprintId: string) => `sprint-${sprintId}`;
+
+function uniqueAssigneesFromTasks(tasks: ITask[]): ITaskUser[] {
+  const map = new Map<string, ITaskUser>();
+  tasks.forEach((t) => {
+    const a = t.assignee;
+    if (a?._id) map.set(a._id, a);
+  });
+  return Array.from(map.values());
+}
 
 interface BacklogViewProps {
   onCreateTask?: () => void;
@@ -27,16 +46,26 @@ interface BacklogViewProps {
 const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask }) => {
   const { language } = useThemeStore();
   const { user } = useAuthStore();
-  const { sprints, backlog, isLoading, fetchSprints, createSprint, startSprint, completeSprint } = useSprintStore();
+  const {
+    sprints,
+    backlog,
+    isLoading,
+    fetchSprints,
+    createSprint,
+    startSprint,
+    completeSprint,
+    moveTaskToSprint,
+  } = useSprintStore();
   const [expandedSprints, setExpandedSprints] = useState<Set<string>>(new Set());
   const [backlogExpanded, setBacklogExpanded] = useState(true);
+  const [sprintAssigneeFilter, setSprintAssigneeFilter] = useState<Record<string, string | null>>({});
+  const [creatingSprint, setCreatingSprint] = useState(false);
 
   useEffect(() => {
     fetchSprints();
   }, [fetchSprints]);
 
   useEffect(() => {
-    // Auto-expand all sprints
     const ids = new Set(sprints.map((s) => s._id));
     setExpandedSprints(ids);
   }, [sprints]);
@@ -49,14 +78,65 @@ const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask }) =
     });
   };
 
-  const handleCreateSprint = () => {
-    createSprint();
+  const handleCreateSprint = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (creatingSprint) return;
+    setCreatingSprint(true);
+    try {
+      await createSprint();
+    } finally {
+      setCreatingSprint(false);
+    }
   };
 
-  const renderTaskRow = (task: ITask, index: number, projectKey: string) => {
+  const parseSprintIdFromDroppable = (droppableId: string): string | null => {
+    if (droppableId === BACKLOG_DROPPABLE_ID) return null;
+    if (droppableId.startsWith('sprint-')) return droppableId.slice('sprint-'.length);
+    return null;
+  };
+
+  const handleDragEnd = useCallback(
+    (result: DropResult) => {
+      const { destination, source, draggableId } = result;
+      if (!destination) return;
+      if (destination.droppableId === source.droppableId && destination.index === source.index) {
+        return;
+      }
+
+      const destSprintId = parseSprintIdFromDroppable(destination.droppableId);
+      const sourceSprintId = parseSprintIdFromDroppable(source.droppableId);
+
+      if (sourceSprintId === destSprintId) return;
+
+      moveTaskToSprint(draggableId, destSprintId);
+    },
+    [moveTaskToSprint]
+  );
+
+  const toggleSprintAssigneeFilter = (sprintId: string, assigneeId: string) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSprintAssigneeFilter((prev) => {
+      const current = prev[sprintId];
+      const nextVal = current === assigneeId ? null : assigneeId;
+      return { ...prev, [sprintId]: nextVal };
+    });
+  };
+
+  const renderTaskRow = (
+    task: ITask,
+    index: number,
+    projectKey: string,
+    snapshot: { isDragging: boolean }
+  ) => {
     const statusColor = getStatusBgColor(task.status);
     return (
-      <TaskRow key={task._id} onClick={() => onEditTask?.(task)}>
+      <TaskRow
+        $isDragging={snapshot.isDragging}
+        onClick={(e) => {
+          if (snapshot.isDragging) return;
+          onEditTask?.(task);
+        }}
+      >
         <TaskTypeIcon>{getTaskTypeIcon(index)}</TaskTypeIcon>
         <TaskId>{projectKey}-{index + 1}</TaskId>
         <TaskTitle>{task.title}</TaskTitle>
@@ -75,63 +155,23 @@ const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask }) =
     );
   };
 
-  const renderSprint = (sprint: ISprint) => {
-    const isExpanded = expandedSprints.has(sprint._id);
-    const dateRange = formatDateRange(sprint.startDate, sprint.endDate);
-    const isActive = sprint.status === 'active';
-    const isPlanning = sprint.status === 'planning';
-
-    return (
-      <SprintSection key={sprint._id}>
-        <SprintHeader $expanded={isExpanded} onClick={() => toggleSprint(sprint._id)}>
-          <SprintChevron $expanded={isExpanded}>▶</SprintChevron>
-          <SprintTitle>{sprint.name}</SprintTitle>
-          {dateRange && <SprintDates>✏️ {getLabel('backlog.addDates', language)}</SprintDates>}
-          {dateRange && <SprintDates>{dateRange}</SprintDates>}
-          <SprintItemCount>({sprint.totalItems} {getLabel('backlog.workItems', language)})</SprintItemCount>
-          <SprintActions>
-            <StatusDots>
-              <StatusDot $color="var(--jira-status-todo)" $count={sprint.statusCounts?.todo || 0}>{sprint.statusCounts?.todo || 0}</StatusDot>
-              <StatusDot $color="var(--jira-status-inprogress)" $count={sprint.statusCounts?.inprogress || 0}>{sprint.statusCounts?.inprogress || 0}</StatusDot>
-              <StatusDot $color="var(--jira-status-done)" $count={sprint.statusCounts?.completed || 0}>{sprint.statusCounts?.completed || 0}</StatusDot>
-            </StatusDots>
-            {isActive && (
-              <SprintButton onClick={(e) => { e.stopPropagation(); completeSprint(sprint._id); }}>
-                {getLabel('backlog.completeSprint', language)}
-              </SprintButton>
-            )}
-            {isPlanning && (
-              <SprintButton onClick={(e) => { e.stopPropagation(); startSprint(sprint._id); }}>
-                {getLabel('backlog.startSprint', language)}
-              </SprintButton>
-            )}
-            <MoreButton onClick={(e) => e.stopPropagation()}>•••</MoreButton>
-          </SprintActions>
-        </SprintHeader>
-
-        {isExpanded && (
-          <SprintBody>
-            {sprint.tasks.length === 0 ? (
-              <EmptySprintMessage>
-                {getLabel('backlog.planSprint', language)}
-              </EmptySprintMessage>
-            ) : (
-              sprint.tasks.map((task, i) => renderTaskRow(task, i, sprint.projectKey || 'SCRUM'))
-            )}
-            <CreateItemRow>
-              <CreateItemButton onClick={onCreateTask}>
-                {getLabel('backlog.create', language)}
-              </CreateItemButton>
-            </CreateItemRow>
-          </SprintBody>
-        )}
-
-        <SprintFooter>
-          ⚙️
-        </SprintFooter>
-      </SprintSection>
-    );
-  };
+  const renderDraggableTaskRow = (
+    task: ITask,
+    index: number,
+    projectKey: string
+  ) => (
+    <Draggable key={task._id} draggableId={task._id} index={index}>
+      {(provided, snapshot) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          {...provided.dragHandleProps}
+        >
+          {renderTaskRow(task, index, projectKey, snapshot)}
+        </div>
+      )}
+    </Draggable>
+  );
 
   if (isLoading) {
     return <div style={{ padding: 40, textAlign: 'center', color: 'var(--jira-text-secondary)' }}>{getLabel('common.loading', language)}</div>;
@@ -140,64 +180,164 @@ const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask }) =
   const totalItems = sprints.reduce((sum, s) => sum + s.totalItems, 0) + backlog.totalItems;
 
   return (
-    <BacklogContainer>
-      <BacklogToolbar>
-        <SearchInput>
-          <SearchIconSmall>🔍</SearchIconSmall>
-          <input placeholder={getLabel('backlog.searchBacklog', language)} />
-        </SearchInput>
-        <AvatarFilter>{user ? getInitials(user.name) : '?'}</AvatarFilter>
-        <FilterBtn>☰ {getLabel('common.filter', language)}</FilterBtn>
-        <ToolbarRight>
-          <span style={{ fontSize: 12, color: 'var(--jira-text-secondary)' }}>⚙️</span>
-          <span style={{ fontSize: 12, color: 'var(--jira-text-secondary)' }}>•••</span>
-        </ToolbarRight>
-      </BacklogToolbar>
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <BacklogContainer>
+        <BacklogToolbar>
+          <SearchInput>
+            <SearchIconSmall>🔍</SearchIconSmall>
+            <input placeholder={getLabel('backlog.searchBacklog', language)} />
+          </SearchInput>
+          <AvatarFilter>{user ? getInitials(user.name) : '?'}</AvatarFilter>
+          <FilterBtn type="button">☰ {getLabel('common.filter', language)}</FilterBtn>
+          <ToolbarRight>
+            <span style={{ fontSize: 12, color: 'var(--jira-text-secondary)' }}>⚙️</span>
+            <span style={{ fontSize: 12, color: 'var(--jira-text-secondary)' }}>•••</span>
+          </ToolbarRight>
+        </BacklogToolbar>
 
-      {/* Sprint Sections */}
-      {sprints.map(renderSprint)}
+        {sprints.map((sprint) => {
+          const isExpanded = expandedSprints.has(sprint._id);
+          const dateRange = formatDateRange(sprint.startDate, sprint.endDate);
+          const isActive = sprint.status === 'active';
+          const isPlanning = sprint.status === 'planning';
+          const filterId = sprintAssigneeFilter[sprint._id] ?? null;
+          const assignees = uniqueAssigneesFromTasks(sprint.tasks);
+          const visibleTasks = !filterId
+            ? sprint.tasks
+            : sprint.tasks.filter((t) => t.assignee?._id === filterId);
 
-      {/* Backlog Section */}
-      <SprintSection>
-        <SprintHeader $expanded={backlogExpanded} onClick={() => setBacklogExpanded(!backlogExpanded)}>
-          <SprintChevron $expanded={backlogExpanded}>▶</SprintChevron>
-          <SprintTitle>{getLabel('backlog.backlog', language)}</SprintTitle>
-          <SprintItemCount>({backlog.totalItems} {getLabel('backlog.workItems', language)})</SprintItemCount>
-          <SprintActions>
-            <StatusDots>
-              <StatusDot $color="var(--jira-status-todo)" $count={0}>0</StatusDot>
-              <StatusDot $color="var(--jira-status-inprogress)" $count={0}>0</StatusDot>
-              <StatusDot $color="var(--jira-status-done)" $count={0}>0</StatusDot>
-            </StatusDots>
-            <SprintButton onClick={(e) => { e.stopPropagation(); handleCreateSprint(); }}>
-              {getLabel('backlog.createSprint', language)}
-            </SprintButton>
-          </SprintActions>
-        </SprintHeader>
+          return (
+            <SprintSection key={sprint._id}>
+              <SprintHeader $expanded={isExpanded} onClick={() => toggleSprint(sprint._id)}>
+                <SprintChevron $expanded={isExpanded}>▶</SprintChevron>
+                <SprintTitle>{sprint.name}</SprintTitle>
+                {dateRange && <SprintDates>✏️ {getLabel('backlog.addDates', language)}</SprintDates>}
+                {dateRange && <SprintDates>{dateRange}</SprintDates>}
+                <SprintItemCount>({sprint.totalItems} {getLabel('backlog.workItems', language)})</SprintItemCount>
+                <SprintActions>
+                  <StatusDots>
+                    <StatusDot $color="var(--jira-status-todo)" $count={sprint.statusCounts?.todo || 0}>{sprint.statusCounts?.todo || 0}</StatusDot>
+                    <StatusDot $color="var(--jira-status-inprogress)" $count={sprint.statusCounts?.inprogress || 0}>{sprint.statusCounts?.inprogress || 0}</StatusDot>
+                    <StatusDot $color="var(--jira-status-done)" $count={sprint.statusCounts?.completed || 0}>{sprint.statusCounts?.completed || 0}</StatusDot>
+                  </StatusDots>
+                  {assignees.length > 0 && (
+                    <SprintMemberAvatars onClick={(e) => e.stopPropagation()}>
+                      {assignees.map((a) => (
+                        <SprintMemberAvatar
+                          key={a._id}
+                          type="button"
+                          title={a.name}
+                          $active={filterId === a._id}
+                          onClick={toggleSprintAssigneeFilter(sprint._id, a._id)}
+                        >
+                          {getInitials(a.name)}
+                        </SprintMemberAvatar>
+                      ))}
+                    </SprintMemberAvatars>
+                  )}
+                  {isActive && (
+                    <SprintButton type="button" onClick={(e) => { e.stopPropagation(); completeSprint(sprint._id); }}>
+                      {getLabel('backlog.completeSprint', language)}
+                    </SprintButton>
+                  )}
+                  {isPlanning && (
+                    <SprintButton type="button" onClick={(e) => { e.stopPropagation(); startSprint(sprint._id); }}>
+                      {getLabel('backlog.startSprint', language)}
+                    </SprintButton>
+                  )}
+                  <MoreButton type="button" onClick={(e) => e.stopPropagation()}>•••</MoreButton>
+                </SprintActions>
+              </SprintHeader>
 
-        {backlogExpanded && (
-          <SprintBody>
-            {backlog.tasks.length === 0 ? (
-              <EmptySprintMessage>
-                {getLabel('backlog.planSprint', language)}
-              </EmptySprintMessage>
-            ) : (
-              backlog.tasks.map((task, i) => renderTaskRow(task, i, 'SCRUM'))
-            )}
-            <CreateItemRow>
-              <CreateItemButton onClick={onCreateTask}>
-                {getLabel('backlog.create', language)}
-              </CreateItemButton>
-            </CreateItemRow>
-          </SprintBody>
-        )}
-      </SprintSection>
+              {isExpanded && (
+                <SprintBody>
+                  <Droppable droppableId={sprintDroppableId(sprint._id)}>
+                    {(dropProvided) => (
+                      <div ref={dropProvided.innerRef} {...dropProvided.droppableProps}>
+                        {visibleTasks.length === 0 ? (
+                          <EmptySprintMessage>
+                            {filterId
+                              ? getLabel('backlog.noTasksForMember', language)
+                              : getLabel('backlog.planSprint', language)}
+                          </EmptySprintMessage>
+                        ) : (
+                          visibleTasks.map((task, i) =>
+                            renderDraggableTaskRow(task, i, sprint.projectKey || 'SCRUM')
+                          )
+                        )}
+                        {dropProvided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                  <CreateItemRow>
+                    <CreateItemButton type="button" onClick={onCreateTask}>
+                      {getLabel('backlog.create', language)}
+                    </CreateItemButton>
+                  </CreateItemRow>
+                </SprintBody>
+              )}
 
-      <BottomStats>
-        <span>{totalItems} of {totalItems} {getLabel('backlog.workItemsVisible', language)}</span>
-        <span>{getLabel('backlog.estimate', language)}: 0 of 0</span>
-      </BottomStats>
-    </BacklogContainer>
+              <SprintFooter>
+                ⚙️
+              </SprintFooter>
+            </SprintSection>
+          );
+        })}
+
+        <SprintSection>
+          <SprintHeader $expanded={backlogExpanded} onClick={() => setBacklogExpanded(!backlogExpanded)}>
+            <SprintChevron $expanded={backlogExpanded}>▶</SprintChevron>
+            <SprintTitle>{getLabel('backlog.backlog', language)}</SprintTitle>
+            <SprintItemCount>({backlog.totalItems} {getLabel('backlog.workItems', language)})</SprintItemCount>
+            <SprintActions>
+              <StatusDots>
+                <StatusDot $color="var(--jira-status-todo)" $count={0}>0</StatusDot>
+                <StatusDot $color="var(--jira-status-inprogress)" $count={0}>0</StatusDot>
+                <StatusDot $color="var(--jira-status-done)" $count={0}>0</StatusDot>
+              </StatusDots>
+              <SprintButton
+                type="button"
+                disabled={creatingSprint}
+                onClick={handleCreateSprint}
+              >
+                {creatingSprint ? getLabel('common.loading', language) : getLabel('backlog.createSprint', language)}
+              </SprintButton>
+            </SprintActions>
+          </SprintHeader>
+
+          {backlogExpanded && (
+            <SprintBody>
+              <Droppable droppableId={BACKLOG_DROPPABLE_ID}>
+                {(dropProvided) => (
+                  <div ref={dropProvided.innerRef} {...dropProvided.droppableProps}>
+                    {backlog.tasks.length === 0 ? (
+                      <EmptySprintMessage>
+                        {getLabel('backlog.planSprint', language)}
+                      </EmptySprintMessage>
+                    ) : (
+                      backlog.tasks.map((task, i) =>
+                        renderDraggableTaskRow(task, i, 'SCRUM')
+                      )
+                    )}
+                    {dropProvided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+              <CreateItemRow>
+                <CreateItemButton type="button" onClick={onCreateTask}>
+                  {getLabel('backlog.create', language)}
+                </CreateItemButton>
+              </CreateItemRow>
+            </SprintBody>
+          )}
+        </SprintSection>
+
+        <BottomStats>
+          <span>{totalItems} of {totalItems} {getLabel('backlog.workItemsVisible', language)}</span>
+          <span>{getLabel('backlog.estimate', language)}: 0 of 0</span>
+        </BottomStats>
+      </BacklogContainer>
+    </DragDropContext>
   );
 };
 
