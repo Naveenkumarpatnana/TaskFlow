@@ -1,0 +1,17 @@
+export const COMMENT_LABELS = {
+  comments: 'comment.comments',
+  addComment: 'comment.addComment',
+  placeholder: 'comment.placeholder',
+  send: 'comment.send',
+  delete: 'comment.delete',
+  noComments: 'comment.noComments',
+  activity: 'comment.activity',
+  details: 'comment.details',
+  description: 'comment.description',
+  status: 'comment.status',
+  priority: 'comment.priority',
+  assignee: 'comment.assignee',
+  dueDate: 'comment.dueDate',
+  created: 'comment.created',
+  updated: 'comment.updated',
+};

@@ -1,0 +1,66 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --jira-bg: #1d2125;
+  --jira-surface: #22272b;
+  --jira-card: #282e33;
+  --jira-card-hover: #2c333a;
+  --jira-border: #394049;
+  --jira-border-light: #454f59;
+  --jira-text-primary: #b6c2cf;
+  --jira-text-secondary: #8c9bab;
+  --jira-text-bright: #dee4ea;
+  --jira-accent-blue: #579dff;
+  --jira-accent-green: #4bce97;
+  --jira-accent-purple: #9f8fef;
+  --jira-accent-orange: #f5cd47;
+  --jira-accent-red: #f87168;
+  --jira-sidebar-bg: #1d2125;
+  --jira-sidebar-hover: #282e33;
+  --jira-sidebar-active: #282e33;
+  --jira-header-bg: #1d2125;
+  --jira-status-todo: #42526e;
+  --jira-status-inprogress: #0052cc;
+  --jira-status-inreview: #0052cc;
+  --jira-status-done: #36b37e;
+  --jira-blue-button: #579dff;
+  --jira-blue-button-hover: #85b8ff;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: var(--jira-bg);
+  color: var(--jira-text-primary);
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--jira-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--jira-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--jira-border-light);
+}
