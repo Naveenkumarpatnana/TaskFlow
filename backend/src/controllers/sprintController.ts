@@ -137,6 +137,24 @@ export const updateSprint = async (req: Request, res: Response): Promise<void> =
   }
 };
 
+// Delete sprint — tasks in this sprint return to backlog (sprint unset)
+export const deleteSprint = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const sprint = await Sprint.findById(req.params.id);
+    if (!sprint) {
+      res.status(404).json({ success: false, message: 'Sprint not found.' });
+      return;
+    }
+
+    await Task.updateMany({ sprint: sprint._id }, { $unset: { sprint: '' } });
+    await Sprint.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({ success: true, message: 'Sprint deleted. Tasks moved to backlog.' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error deleting sprint.', error: formatError(error) });
+  }
+};
+
 // Move task to sprint
 export const moveTaskToSprint = async (req: Request, res: Response): Promise<void> => {
   try {

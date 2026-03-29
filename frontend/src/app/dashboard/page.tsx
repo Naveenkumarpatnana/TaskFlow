@@ -97,6 +97,7 @@ export default function DashboardPage() {
 
   const canCreateTask = user?.role === UserRole.ADMIN || user?.role === UserRole.MANAGER;
   const canDeleteTask = user?.role === UserRole.ADMIN;
+  const canDeleteSprint = user?.role === UserRole.ADMIN || user?.role === UserRole.MANAGER;
 
   const resetForm = () => {
     setTitle(''); setDescription('');
@@ -209,6 +210,7 @@ export default function DashboardPage() {
               onCreateTask={canCreateTask ? handleOpenCreate : undefined}
               onEditTask={handleOpenDetail}
               onDeleteTask={canDeleteTask ? handleDelete : undefined}
+              canDeleteSprint={canDeleteSprint}
             />
           )}
           {activeTab === 'board' && (

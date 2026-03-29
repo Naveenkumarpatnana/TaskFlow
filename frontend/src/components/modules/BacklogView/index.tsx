@@ -45,9 +45,16 @@ interface BacklogViewProps {
   onCreateTask?: () => void;
   onEditTask?: (task: ITask) => void;
   onDeleteTask?: (taskId: string) => void;
+  /** Admin / manager: show sprint ••• menu with delete sprint */
+  canDeleteSprint?: boolean;
 }
 
-const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask, onDeleteTask }) => {
+const BacklogView: React.FC<BacklogViewProps> = ({
+  onCreateTask,
+  onEditTask,
+  onDeleteTask,
+  canDeleteSprint = false,
+}) => {
   const { language } = useThemeStore();
   const { user } = useAuthStore();
   const {
@@ -58,6 +65,7 @@ const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask, onD
     createSprint,
     startSprint,
     completeSprint,
+    deleteSprint,
     moveTaskToSprint,
   } = useSprintStore();
   const [expandedSprints, setExpandedSprints] = useState<Set<string>>(new Set());
@@ -67,6 +75,7 @@ const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask, onD
   const [rowMenuTaskId, setRowMenuTaskId] = useState<string | null>(null);
   const [toolbarMenuOpen, setToolbarMenuOpen] = useState(false);
   const [contextTaskId, setContextTaskId] = useState<string | null>(null);
+  const [openSprintMenuId, setOpenSprintMenuId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSprints();
@@ -96,6 +105,22 @@ const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask, onD
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [toolbarMenuOpen]);
+
+  useEffect(() => {
+    if (!openSprintMenuId) return;
+    const close = (e: MouseEvent) => {
+      const el = document.getElementById(`sprint-header-menu-${openSprintMenuId}`);
+      if (el && !el.contains(e.target as Node)) setOpenSprintMenuId(null);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [openSprintMenuId]);
+
+  const handleDeleteSprint = async (sprintId: string) => {
+    if (!window.confirm(getLabel('backlog.confirmDeleteSprint', language))) return;
+    await deleteSprint(sprintId);
+    setOpenSprintMenuId(null);
+  };
 
   const toggleSprint = (id: string) => {
     setExpandedSprints((prev) => {
@@ -355,7 +380,38 @@ const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask, onD
                       {getLabel('backlog.startSprint', language)}
                     </SprintButton>
                   )}
-                  <MoreButton type="button" onClick={(e) => e.stopPropagation()}>•••</MoreButton>
+                  {canDeleteSprint && (
+                    <TaskRowMenuWrap
+                      id={`sprint-header-menu-${sprint._id}`}
+                      onMouseDown={(e) => e.stopPropagation()}
+                    >
+                      <MoreButton
+                        type="button"
+                        aria-expanded={openSprintMenuId === sprint._id}
+                        aria-haspopup="menu"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenSprintMenuId((id) => (id === sprint._id ? null : sprint._id));
+                        }}
+                      >
+                        •••
+                      </MoreButton>
+                      {openSprintMenuId === sprint._id && (
+                        <TaskRowMenuDropdown role="menu">
+                          <TaskRowMenuItem
+                            type="button"
+                            role="menuitem"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteSprint(sprint._id);
+                            }}
+                          >
+                            {getLabel('backlog.deleteSprint', language)}
+                          </TaskRowMenuItem>
+                        </TaskRowMenuDropdown>
+                      )}
+                    </TaskRowMenuWrap>
+                  )}
                 </SprintActions>
               </SprintHeader>
 

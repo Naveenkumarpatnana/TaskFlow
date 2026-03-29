@@ -81,6 +81,8 @@ export const sprintAPI = {
 
   complete: (id: string) => api.put(`/sprints/${id}/complete`),
 
+  delete: (id: string) => api.delete(`/sprints/${id}`),
+
   moveTask: (taskId: string, sprintId: string | null) =>
     api.post('/sprints/move-task', { taskId, sprintId }),
 };

@@ -18,8 +18,10 @@ import TaskCard from '../TaskCard';
 import { useThemeStore } from '@/stores/themeStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useSprintStore } from '@/stores/sprintStore';
+import { useAuthStore } from '@/stores/authStore';
 import { getLabel } from '@/i18n/translator';
 import { ITask, TaskStatus } from '@/types/task.types';
+import { UserRole } from '@/types/user.types';
 import { BOARD_LABELS } from '@/labels/boardLabels';
 
 interface TaskBoardProps {
@@ -44,6 +46,7 @@ const sprintStatusLabelKey = (status: string): string => {
 
 const TaskBoard: React.FC<TaskBoardProps> = ({ onEditTask, onDeleteTask, onCreateTask }) => {
   const { language } = useThemeStore();
+  const { user } = useAuthStore();
   const { tasks, moveTask, fetchTasks } = useTaskStore();
   const { sprints, fetchSprints, completeSprint } = useSprintStore();
   const [boardSprintFilter, setBoardSprintFilter] = useState<string>('all');
@@ -63,13 +66,21 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ onEditTask, onDeleteTask, onCreat
     [sprints]
   );
 
+  const tasksForRole = useMemo(() => {
+    if (!user || user.role !== UserRole.EMPLOYEE) return tasks;
+    const uid = String(user.id);
+    return tasks.filter((t) => String(t.assignee?._id || '') === uid);
+  }, [tasks, user]);
+
   const filteredTasks = useMemo(() => {
-    if (boardSprintFilter === 'all') return tasks;
+    if (boardSprintFilter === 'all') return tasksForRole;
     if (boardSprintFilter === 'backlog') {
-      return tasks.filter((t) => !t.sprint);
+      return tasksForRole.filter((t) => !t.sprint);
     }
-    return tasks.filter((t) => String(t.sprint || '') === String(boardSprintFilter));
-  }, [tasks, boardSprintFilter]);
+    return tasksForRole.filter((t) => String(t.sprint || '') === String(boardSprintFilter));
+  }, [tasksForRole, boardSprintFilter]);
+
+  const canCompleteSprint = user?.role !== UserRole.EMPLOYEE;
 
   const getColumnTasks = (status: TaskStatus): ITask[] =>
     filteredTasks.filter((t) => t.status === status);
@@ -115,14 +126,16 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ onEditTask, onDeleteTask, onCreat
           ))}
         </BoardSprintSelect>
         <ToolbarSpacer />
-        <CompleteSprintBtn
-          type="button"
-          disabled={!activeSprint || completingSprint}
-          onClick={handleCompleteSprint}
-          title={!activeSprint ? getLabel('board.noActiveSprint', language) : undefined}
-        >
-          {completingSprint ? getLabel('common.loading', language) : getLabel('board.completeSprint', language)}
-        </CompleteSprintBtn>
+        {canCompleteSprint && (
+          <CompleteSprintBtn
+            type="button"
+            disabled={!activeSprint || completingSprint}
+            onClick={handleCompleteSprint}
+            title={!activeSprint ? getLabel('board.noActiveSprint', language) : undefined}
+          >
+            {completingSprint ? getLabel('common.loading', language) : getLabel('board.completeSprint', language)}
+          </CompleteSprintBtn>
+        )}
         <GroupButton type="button">
           {getLabel('board.group', language)} ▾
         </GroupButton>
