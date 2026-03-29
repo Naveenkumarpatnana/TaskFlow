@@ -32,6 +32,9 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, index, onEdit, onDelete }) =>
       <CardTitle>{task.title}</CardTitle>
       <CardFooter>
         <CardMeta>
+          {task.estimatedHours != null && task.estimatedHours > 0 && (
+            <CardDate>⏱ {task.estimatedHours}h</CardDate>
+          )}
           {task.dueDate && (
             <CardDate>📅 {formatDateShort(task.dueDate)}</CardDate>
           )}

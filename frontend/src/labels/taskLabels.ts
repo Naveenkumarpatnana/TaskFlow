@@ -5,6 +5,7 @@ export const TASK_LABELS = {
   priority: 'task.priority',
   assignee: 'task.assignee',
   dueDate: 'task.dueDate',
+  estimatedHours: 'task.estimatedHours',
   create: 'task.create',
   edit: 'task.edit',
   delete: 'task.delete',

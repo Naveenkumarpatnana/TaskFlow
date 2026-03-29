@@ -240,6 +240,9 @@ const translations: TranslationMap = {
   'task.dueDate': {
     en: 'Due Date', hi: 'नियत तारीख', te: 'గడువు తేదీ', ta: 'நிலுவை தேதி', kn: 'ಅಂತಿಮ ದಿನಾಂಕ',
   },
+  'task.estimatedHours': {
+    en: 'Estimated hours', hi: 'अनुमानित घंटे', te: 'అంచనా గంటలు', ta: 'மதிப்பிடப்பட்ட மணிநேரம்', kn: 'ಅಂದಾಜು ಗಂಟೆಗಳು',
+  },
   'task.create': {
     en: 'Create', hi: 'बनाएं', te: 'సృష్టించు', ta: 'உருவாக்கு', kn: 'ರಚಿಸಿ',
   },
@@ -321,6 +324,15 @@ const translations: TranslationMap = {
   'backlog.noTasksForMember': {
     en: 'No tasks for this member in this sprint.', hi: 'इस सदस्य के लिए इस स्प्रिंट में कोई कार्य नहीं।', te: 'ఈ సభ్యునికి ఈ స్ప్రింట్‌లో టాస్క్‌లు లేవు.', ta: 'இந்த உறுப்பினருக்கு இந்த ஸ்பிரிண்டில் பணிகள் இல்லை.', kn: 'ಈ ಸದಸ್ಯರಿಗೆ ಈ ಸ್ಪ್ರಿಂಟ್‌ನಲ್ಲಿ ಕಾರ್ಯಗಳಿಲ್ಲ.',
   },
+  'backlog.showAllTasks': {
+    en: 'Click to show all tasks', hi: 'सभी कार्य दिखाने के लिए क्लिक करें', te: 'అన్ని టాస్క్‌లు చూపడానికి క్లిక్ చేయండి', ta: 'அனைத்து பணிகளையும் காட்ட கிளிக் செய்யவும்', kn: 'ಎಲ್ಲಾ ಕಾರ್ಯಗಳನ್ನು ತೋರಿಸಲು ಕ್ಲಿಕ್ ಮಾಡಿ',
+  },
+  'backlog.filterTasksBy': {
+    en: 'Show only tasks for', hi: 'इसके लिए केवल कार्य दिखाएं', te: 'వీరి కోసం మాత్రమే టాస్క్‌లు', ta: 'இவருக்கான பணிகள் மட்டும்', kn: 'ಇವರಿಗಾಗಿ ಮಾತ್ರ ಕಾರ್ಯಗಳು',
+  },
+  'backlog.selectTaskToDelete': {
+    en: 'Click a task row first', hi: 'पहले कार्य पंक्ति पर क्लिक करें', te: 'మొదట టాస్క్ వరుసపై క్లిక్ చేయండి', ta: 'முதலில் ஒரு பணி வரிசையைக் கிளிக் செய்யவும்', kn: 'ಮೊದಲು ಒಂದು ಕಾರ್ಯ ಸಾಲನ್ನು ಕ್ಲಿಕ್ ಮಾಡಿ',
+  },
   'backlog.create': {
     en: '+ Create', hi: '+ बनाएं', te: '+ సృష్టించు', ta: '+ உருவாக்கு', kn: '+ ರಚಿಸಿ',
   },
@@ -331,12 +343,37 @@ const translations: TranslationMap = {
     en: 'Estimate', hi: 'अनुमान', te: 'అంచనా', ta: 'மதிப்பீடு', kn: 'ಅಂದಾಜು',
   },
 
+  'sprint.statusPlanning': {
+    en: 'planning', hi: 'योजना', te: 'ప్లానింగ్', ta: 'திட்டமிடல்', kn: 'ಯೋಜನೆ',
+  },
+  'sprint.statusActive': {
+    en: 'active', hi: 'सक्रिय', te: 'యాక్టివ్', ta: 'செயலில்', kn: 'ಸಕ್ರಿಯ',
+  },
+  'sprint.statusCompleted': {
+    en: 'completed', hi: 'पूर्ण', te: 'పూర్తయింది', ta: 'முடிந்தது', kn: 'ಪೂರ್ಣಗೊಂಡಿದೆ',
+  },
+
   // ─── Board ───
   'board.searchBoard': {
     en: 'Search board', hi: 'बोर्ड खोजें', te: 'బోర్డ్ శోధించు', ta: 'போர்டு தேடு', kn: 'ಬೋರ್ಡ್ ಹುಡುಕಿ',
   },
   'board.completeSprint': {
     en: 'Complete sprint', hi: 'स्प्रिंट पूरा करें', te: 'స్ప్రింట్ పూర్తి చేయి', ta: 'ஸ்பிரிண்ட் முடிக்கவும்', kn: 'ಸ್ಪ್ರಿಂಟ್ ಪೂರ್ಣಗೊಳಿಸಿ',
+  },
+  'board.allTasks': {
+    en: 'All tasks', hi: 'सभी कार्य', te: 'అన్ని టాస్క్‌లు', ta: 'அனைத்து பணிகள்', kn: 'ಎಲ್ಲಾ ಕಾರ್ಯಗಳು',
+  },
+  'board.backlogOnly': {
+    en: 'Backlog (no sprint)', hi: 'बैकलॉग (कोई स्प्रिंट नहीं)', te: 'బ్యాక్‌లాగ్ (స్ప్రింట్ లేదు)', ta: 'பேக்லாக் (ஸ்பிரிண்ட் இல்லை)', kn: 'ಬ್ಯಾಕ್‌ಲಾಗ್ (ಸ್ಪ್ರಿಂಟ್ ಇಲ್ಲ)',
+  },
+  'board.sprintFilter': {
+    en: 'Filter by sprint', hi: 'स्प्रिंट से फ़िल्टर करें', te: 'స్ప్రింట్ ద్వారా ఫిల్టర్', ta: 'ஸ்பிரிண்ட் வாரியாக வடிகட்டு', kn: 'ಸ್ಪ್ರಿಂಟ್ ಮೂಲಕ ಫಿಲ್ಟರ್',
+  },
+  'board.confirmCompleteSprint': {
+    en: 'Complete this sprint? Incomplete tasks will return to the backlog.', hi: 'इस स्प्रिंट को पूरा करें? अधूरे कार्य बैकलॉग में लौट आएंगे।', te: 'ఈ స్ప్రింట్ పూర్తి చేయాలా? పూర్తి కాని టాస్క్‌లు బ్యాక్‌లాగ్‌కు వెళ్తాయి.', ta: 'இந்த ஸ்பிரிண்டை முடிக்கவா? முழுமையடையாத பணிகள் பேக்லாக்குக்குச் செல்லும்.', kn: 'ಈ ಸ್ಪ್ರಿಂಟ್ ಪೂರ್ಣಗೊಳಿಸುವುದೇ? ಅಪೂರ್ಣ ಕಾರ್ಯಗಳು ಬ್ಯಾಕ್‌ಲಾಗ್‌ಗೆ ಹೋಗುತ್ತವೆ.',
+  },
+  'board.noActiveSprint': {
+    en: 'No active sprint', hi: 'कोई सक्रिय स्प्रिंट नहीं', te: 'యాక్టివ్ స్ప్రింట్ లేదు', ta: 'செயலில் ஸ்பிரிண்ட் இல்லை', kn: 'ಸಕ್ರಿಯ ಸ್ಪ್ರಿಂಟ್ ಇಲ್ಲ',
   },
   'board.group': {
     en: 'Group', hi: 'समूह', te: 'గ్రూప్', ta: 'குழு', kn: 'ಗುಂಪು',

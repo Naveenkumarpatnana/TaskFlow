@@ -12,11 +12,14 @@ import {
   AvatarFilter, FilterBtn, ToolbarRight,
   SprintSection, SprintHeader, SprintChevron, SprintTitle, SprintDates,
   SprintItemCount, SprintActions, StatusDots, StatusDot,
-  SprintButton, MoreButton, SprintBody, SprintFooter,
+  SprintButton, MoreButton, SprintBody, SprintFooter, ToolbarMenuWrap,
   TaskRow, TaskTypeIcon, TaskId, TaskTitle,
   TaskStatusBadge, TaskDueDate, TaskAssignee,
   CreateItemRow, CreateItemButton, EmptySprintMessage, BottomStats,
   SprintMemberAvatars, SprintMemberAvatar,
+  TaskRowMenuWrap, TaskRowMoreBtn, TaskRowMenuDropdown, TaskRowMenuItem,
+  TaskEstimate,
+  DraggableTaskWrapper,
 } from './styled';
 import { useThemeStore } from '@/stores/themeStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -33,7 +36,7 @@ function uniqueAssigneesFromTasks(tasks: ITask[]): ITaskUser[] {
   const map = new Map<string, ITaskUser>();
   tasks.forEach((t) => {
     const a = t.assignee;
-    if (a?._id) map.set(a._id, a);
+    if (a?._id) map.set(String(a._id), a);
   });
   return Array.from(map.values());
 }
@@ -41,9 +44,10 @@ function uniqueAssigneesFromTasks(tasks: ITask[]): ITaskUser[] {
 interface BacklogViewProps {
   onCreateTask?: () => void;
   onEditTask?: (task: ITask) => void;
+  onDeleteTask?: (taskId: string) => void;
 }
 
-const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask }) => {
+const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask, onDeleteTask }) => {
   const { language } = useThemeStore();
   const { user } = useAuthStore();
   const {
@@ -60,6 +64,9 @@ const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask }) =
   const [backlogExpanded, setBacklogExpanded] = useState(true);
   const [sprintAssigneeFilter, setSprintAssigneeFilter] = useState<Record<string, string | null>>({});
   const [creatingSprint, setCreatingSprint] = useState(false);
+  const [rowMenuTaskId, setRowMenuTaskId] = useState<string | null>(null);
+  const [toolbarMenuOpen, setToolbarMenuOpen] = useState(false);
+  const [contextTaskId, setContextTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSprints();
@@ -69,6 +76,26 @@ const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask }) =
     const ids = new Set(sprints.map((s) => s._id));
     setExpandedSprints(ids);
   }, [sprints]);
+
+  useEffect(() => {
+    if (!rowMenuTaskId) return;
+    const close = (e: MouseEvent) => {
+      const el = document.getElementById(`task-row-menu-${rowMenuTaskId}`);
+      if (el && !el.contains(e.target as Node)) setRowMenuTaskId(null);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [rowMenuTaskId]);
+
+  useEffect(() => {
+    if (!toolbarMenuOpen) return;
+    const close = (e: MouseEvent) => {
+      const el = document.getElementById('backlog-toolbar-menu');
+      if (el && !el.contains(e.target as Node)) setToolbarMenuOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [toolbarMenuOpen]);
 
   const toggleSprint = (id: string) => {
     setExpandedSprints((prev) => {
@@ -115,9 +142,10 @@ const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask }) =
 
   const toggleSprintAssigneeFilter = (sprintId: string, assigneeId: string) => (e: React.MouseEvent) => {
     e.stopPropagation();
+    const sid = String(assigneeId);
     setSprintAssigneeFilter((prev) => {
       const current = prev[sprintId];
-      const nextVal = current === assigneeId ? null : assigneeId;
+      const nextVal = current != null && String(current) === sid ? null : sid;
       return { ...prev, [sprintId]: nextVal };
     });
   };
@@ -134,6 +162,9 @@ const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask }) =
         $isDragging={snapshot.isDragging}
         onClick={(e) => {
           if (snapshot.isDragging) return;
+          const t = e.target as HTMLElement;
+          if (t.closest('[data-task-row-menu]')) return;
+          setContextTaskId(task._id);
           onEditTask?.(task);
         }}
       >
@@ -145,8 +176,48 @@ const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask }) =
             {getLabel(`status.${task.status}`, language)} ▾
           </TaskStatusBadge>
         )}
+        {task.estimatedHours != null && task.estimatedHours > 0 && (
+          <TaskEstimate title={getLabel('task.estimatedHours', language)}>
+            ⏱ {task.estimatedHours}h
+          </TaskEstimate>
+        )}
         {task.dueDate && (
           <TaskDueDate>📅 {formatDateShort(task.dueDate)}</TaskDueDate>
+        )}
+        {onDeleteTask && (
+          <TaskRowMenuWrap
+            data-task-row-menu
+            id={`task-row-menu-${task._id}`}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <TaskRowMoreBtn
+              type="button"
+              aria-expanded={rowMenuTaskId === task._id}
+              aria-haspopup="menu"
+              onClick={(e) => {
+                e.stopPropagation();
+                setRowMenuTaskId((id) => (id === task._id ? null : task._id));
+              }}
+            >
+              •••
+            </TaskRowMoreBtn>
+            {rowMenuTaskId === task._id && (
+              <TaskRowMenuDropdown role="menu">
+                <TaskRowMenuItem
+                  type="button"
+                  role="menuitem"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setRowMenuTaskId(null);
+                    onDeleteTask(task._id);
+                  }}
+                >
+                  {getLabel('task.delete', language)}
+                </TaskRowMenuItem>
+              </TaskRowMenuDropdown>
+            )}
+          </TaskRowMenuWrap>
         )}
         <TaskAssignee title={task.assignee?.name || ''}>
           {getInitials(task.assignee?.name || '')}
@@ -162,13 +233,13 @@ const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask }) =
   ) => (
     <Draggable key={task._id} draggableId={task._id} index={index}>
       {(provided, snapshot) => (
-        <div
+        <DraggableTaskWrapper
           ref={provided.innerRef}
           {...provided.draggableProps}
-          {...provided.dragHandleProps}
+          {...(provided.dragHandleProps ?? {})}
         >
           {renderTaskRow(task, index, projectKey, snapshot)}
-        </div>
+        </DraggableTaskWrapper>
       )}
     </Draggable>
   );
@@ -191,7 +262,42 @@ const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask }) =
           <FilterBtn type="button">☰ {getLabel('common.filter', language)}</FilterBtn>
           <ToolbarRight>
             <span style={{ fontSize: 12, color: 'var(--jira-text-secondary)' }}>⚙️</span>
-            <span style={{ fontSize: 12, color: 'var(--jira-text-secondary)' }}>•••</span>
+            {onDeleteTask ? (
+              <ToolbarMenuWrap id="backlog-toolbar-menu">
+                <MoreButton
+                  type="button"
+                  aria-expanded={toolbarMenuOpen}
+                  aria-haspopup="menu"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setToolbarMenuOpen((v) => !v);
+                  }}
+                >
+                  •••
+                </MoreButton>
+                {toolbarMenuOpen && (
+                  <TaskRowMenuDropdown role="menu">
+                    <TaskRowMenuItem
+                      type="button"
+                      role="menuitem"
+                      disabled={!contextTaskId}
+                      title={!contextTaskId ? getLabel('backlog.selectTaskToDelete', language) : undefined}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!contextTaskId) return;
+                        setToolbarMenuOpen(false);
+                        onDeleteTask(contextTaskId);
+                        setContextTaskId(null);
+                      }}
+                    >
+                      {getLabel('task.delete', language)}
+                    </TaskRowMenuItem>
+                  </TaskRowMenuDropdown>
+                )}
+              </ToolbarMenuWrap>
+            ) : (
+              <span style={{ fontSize: 12, color: 'var(--jira-text-secondary)' }}>•••</span>
+            )}
           </ToolbarRight>
         </BacklogToolbar>
 
@@ -204,7 +310,7 @@ const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask }) =
           const assignees = uniqueAssigneesFromTasks(sprint.tasks);
           const visibleTasks = !filterId
             ? sprint.tasks
-            : sprint.tasks.filter((t) => t.assignee?._id === filterId);
+            : sprint.tasks.filter((t) => String(t.assignee?._id || '') === String(filterId));
 
           return (
             <SprintSection key={sprint._id}>
@@ -226,8 +332,12 @@ const BacklogView: React.FC<BacklogViewProps> = ({ onCreateTask, onEditTask }) =
                         <SprintMemberAvatar
                           key={a._id}
                           type="button"
-                          title={a.name}
-                          $active={filterId === a._id}
+                          title={
+                            filterId != null && String(filterId) === String(a._id)
+                              ? `${a.name} — ${getLabel('backlog.showAllTasks', language)}`
+                              : `${getLabel('backlog.filterTasksBy', language)} ${a.name}`
+                          }
+                          $active={filterId != null && String(filterId) === String(a._id)}
                           onClick={toggleSprintAssigneeFilter(sprint._id, a._id)}
                         >
                           {getInitials(a.name)}

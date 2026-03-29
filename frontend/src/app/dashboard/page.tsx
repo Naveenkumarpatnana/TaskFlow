@@ -16,6 +16,7 @@ import Button from '@/components/common/Button';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useTaskStore } from '@/stores/taskStore';
+import { useSprintStore } from '@/stores/sprintStore';
 import { dashboardAPI, authAPI } from '@/services/api';
 import { getLabel } from '@/i18n/translator';
 import { TASK_LABELS } from '@/labels/taskLabels';
@@ -29,6 +30,7 @@ export default function DashboardPage() {
   const { isAuthenticated, user, loadFromStorage } = useAuthStore();
   const { language, loadPreferences } = useThemeStore();
   const { fetchTasks, createTask, updateTask, deleteTask } = useTaskStore();
+  const fetchSprints = useSprintStore((s) => s.fetchSprints);
   const { connect } = useSocket();
 
   const [activeTab, setActiveTab] = useState<ViewTab>('summary');
@@ -52,6 +54,7 @@ export default function DashboardPage() {
   const [priority, setPriority] = useState<TaskPriority>(TaskPriority.MEDIUM);
   const [assignee, setAssignee] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [estimatedHours, setEstimatedHours] = useState('');
 
   useEffect(() => {
     loadFromStorage();
@@ -98,7 +101,7 @@ export default function DashboardPage() {
   const resetForm = () => {
     setTitle(''); setDescription('');
     setStatus(TaskStatus.TODO); setPriority(TaskPriority.MEDIUM);
-    setAssignee(''); setDueDate(''); setEditingTask(null);
+    setAssignee(''); setDueDate(''); setEstimatedHours(''); setEditingTask(null);
   };
 
   const handleOpenCreate = () => { resetForm(); setShowModal(true); };
@@ -118,25 +121,56 @@ export default function DashboardPage() {
     setPriority(task.priority);
     setAssignee(task.assignee?._id || '');
     setDueDate(task.dueDate ? task.dueDate.split('T')[0] : '');
+    setEstimatedHours(
+      task.estimatedHours != null && !Number.isNaN(task.estimatedHours)
+        ? String(task.estimatedHours)
+        : ''
+    );
     setShowModal(true);
+  };
+
+  const parseEstimatedHours = (): number | undefined => {
+    const t = estimatedHours.trim();
+    if (t === '') return undefined;
+    const n = parseFloat(t);
+    return Number.isNaN(n) ? undefined : n;
   };
 
   const handleSubmit = async () => {
     try {
+      const eh = parseEstimatedHours();
       if (editingTask) {
-        await updateTask(editingTask._id, { title, description, status, priority, assignee, dueDate: dueDate || undefined });
+        await updateTask(editingTask._id, {
+          title,
+          description,
+          status,
+          priority,
+          assignee,
+          dueDate: dueDate || undefined,
+          estimatedHours: eh,
+        });
       } else {
-        await createTask({ title, description, status, priority, assignee, dueDate: dueDate || undefined });
+        await createTask({
+          title,
+          description,
+          status,
+          priority,
+          assignee,
+          dueDate: dueDate || undefined,
+          estimatedHours: eh,
+        });
       }
       setShowModal(false);
       resetForm();
+      fetchSprints();
     } catch {}
   };
 
   const handleDelete = async (taskId: string) => {
-    if (window.confirm(getLabel('task.delete', language) + '?')) {
-      await deleteTask(taskId);
-    }
+    if (!window.confirm(getLabel('task.delete', language) + '?')) return;
+    await deleteTask(taskId);
+    await fetchSprints();
+    setDetailTask((prev) => (prev?._id === taskId ? null : prev));
   };
 
   if (!isAuthenticated) return null;
@@ -174,6 +208,7 @@ export default function DashboardPage() {
             <BacklogView
               onCreateTask={canCreateTask ? handleOpenCreate : undefined}
               onEditTask={handleOpenDetail}
+              onDeleteTask={canDeleteTask ? handleDelete : undefined}
             />
           )}
           {activeTab === 'board' && (
@@ -241,6 +276,15 @@ export default function DashboardPage() {
             type="date"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
+          />
+          <Input
+            label={getLabel(TASK_LABELS.estimatedHours, language)}
+            type="number"
+            min={0}
+            step={0.5}
+            value={estimatedHours}
+            onChange={(e) => setEstimatedHours(e.target.value)}
+            placeholder="0"
           />
         </Modal>
 

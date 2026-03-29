@@ -75,6 +75,12 @@ export const ToolbarRight = styled.div`
   margin-left: auto;
 `;
 
+export const ToolbarMenuWrap = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+`;
+
 export const SprintSection = styled.div`
   margin-bottom: 16px;
   border: 1px solid var(--jira-border);
@@ -219,20 +225,86 @@ export const SprintBody = styled.div`
   border-top: 1px solid var(--jira-border);
 `;
 
+/** Same DOM node must receive innerRef + draggableProps + dragHandleProps (see @hello-pangea/dnd Draggable). */
+export const DraggableTaskWrapper = styled.div`
+  box-sizing: border-box;
+`;
+
 export const TaskRow = styled.div<{ $isDragging?: boolean }>`
   display: flex;
   align-items: center;
   padding: 6px 12px;
   gap: 10px;
   border-bottom: 1px solid var(--jira-border);
-  cursor: grab;
+  cursor: pointer;
   transition: background 0.1s;
   background: ${({ $isDragging }) => ($isDragging ? 'var(--jira-card-hover)' : 'transparent')};
   box-shadow: ${({ $isDragging }) => ($isDragging ? '0 2px 8px rgba(0,0,0,0.25)' : 'none')};
 
-  &:active { cursor: grabbing; }
   &:hover { background: var(--jira-card-hover); }
   &:last-child { border-bottom: none; }
+`;
+
+export const TaskRowMenuWrap = styled.div`
+  position: relative;
+  flex-shrink: 0;
+`;
+
+export const TaskRowMoreBtn = styled.button`
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--jira-text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+
+  &:hover { background: var(--jira-card-hover); color: var(--jira-text-bright); }
+`;
+
+export const TaskRowMenuDropdown = styled.div`
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 2px;
+  min-width: 120px;
+  padding: 4px 0;
+  background: var(--jira-card);
+  border: 1px solid var(--jira-border);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  z-index: 20;
+`;
+
+export const TaskRowMenuItem = styled.button`
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--jira-text-primary);
+  font-size: 13px;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: var(--jira-card-hover);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+`;
+
+export const TaskEstimate = styled.span`
+  font-size: 12px;
+  color: var(--jira-text-secondary);
+  white-space: nowrap;
 `;
 
 export const TaskCheckbox = styled.input`

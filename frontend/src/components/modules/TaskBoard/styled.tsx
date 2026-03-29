@@ -53,7 +53,29 @@ export const CompleteSprintBtn = styled.button`
   font-weight: 600;
   cursor: pointer;
 
-  &:hover { background: var(--jira-blue-button-hover); }
+  &:hover:not(:disabled) { background: var(--jira-blue-button-hover); }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+export const BoardSprintSelect = styled.select`
+  padding: 6px 10px;
+  min-width: 200px;
+  max-width: 280px;
+  background: var(--jira-card);
+  border: 1px solid var(--jira-border);
+  border-radius: 4px;
+  color: var(--jira-text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+
+  &:focus {
+    border-color: var(--jira-accent-blue);
+  }
 `;
 
 export const GroupButton = styled.button`

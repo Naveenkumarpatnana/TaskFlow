@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   DragDropContext,
   Droppable,
@@ -12,11 +12,12 @@ import {
   ToolbarSpacer, CompleteSprintBtn, GroupButton, ToolbarIcon,
   BoardContainer, Column, ColumnHeader, ColumnTitle,
   ColumnCount, ColumnBody, EmptyColumn, AddColumnButton,
-  DoneIcon, CreateInlineBtn,
+  DoneIcon, CreateInlineBtn, BoardSprintSelect,
 } from './styled';
 import TaskCard from '../TaskCard';
 import { useThemeStore } from '@/stores/themeStore';
 import { useTaskStore } from '@/stores/taskStore';
+import { useSprintStore } from '@/stores/sprintStore';
 import { getLabel } from '@/i18n/translator';
 import { ITask, TaskStatus } from '@/types/task.types';
 import { BOARD_LABELS } from '@/labels/boardLabels';
@@ -34,12 +35,44 @@ const COLUMNS: { status: TaskStatus; labelKey: string; icon?: string }[] = [
   { status: TaskStatus.COMPLETED, labelKey: BOARD_LABELS.done, icon: '✓' },
 ];
 
+const sprintStatusLabelKey = (status: string): string => {
+  if (status === 'planning') return 'sprint.statusPlanning';
+  if (status === 'active') return 'sprint.statusActive';
+  if (status === 'completed') return 'sprint.statusCompleted';
+  return 'sprint.statusPlanning';
+};
+
 const TaskBoard: React.FC<TaskBoardProps> = ({ onEditTask, onDeleteTask, onCreateTask }) => {
   const { language } = useThemeStore();
-  const { tasks, moveTask } = useTaskStore();
+  const { tasks, moveTask, fetchTasks } = useTaskStore();
+  const { sprints, fetchSprints, completeSprint } = useSprintStore();
+  const [boardSprintFilter, setBoardSprintFilter] = useState<string>('all');
+  const [completingSprint, setCompletingSprint] = useState(false);
+
+  useEffect(() => {
+    fetchSprints();
+  }, [fetchSprints]);
+
+  const sortedSprints = useMemo(
+    () => [...sprints].sort((a, b) => a.sprintNumber - b.sprintNumber),
+    [sprints]
+  );
+
+  const activeSprint = useMemo(
+    () => sprints.find((s) => s.status === 'active'),
+    [sprints]
+  );
+
+  const filteredTasks = useMemo(() => {
+    if (boardSprintFilter === 'all') return tasks;
+    if (boardSprintFilter === 'backlog') {
+      return tasks.filter((t) => !t.sprint);
+    }
+    return tasks.filter((t) => String(t.sprint || '') === String(boardSprintFilter));
+  }, [tasks, boardSprintFilter]);
 
   const getColumnTasks = (status: TaskStatus): ITask[] =>
-    tasks.filter((t) => t.status === status);
+    filteredTasks.filter((t) => t.status === status);
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
@@ -49,6 +82,18 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ onEditTask, onDeleteTask, onCreat
     }
   };
 
+  const handleCompleteSprint = useCallback(async () => {
+    if (!activeSprint || completingSprint) return;
+    if (!window.confirm(getLabel('board.confirmCompleteSprint', language))) return;
+    setCompletingSprint(true);
+    try {
+      await completeSprint(activeSprint._id);
+      await fetchTasks();
+    } finally {
+      setCompletingSprint(false);
+    }
+  }, [activeSprint, completingSprint, completeSprint, fetchTasks, language]);
+
   return (
     <BoardWrapper>
       <BoardToolbar>
@@ -56,16 +101,34 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ onEditTask, onDeleteTask, onCreat
           <BoardSearchIcon>🔍</BoardSearchIcon>
           <input placeholder={getLabel('board.searchBoard', language)} />
         </BoardSearchInput>
+        <BoardSprintSelect
+          value={boardSprintFilter}
+          onChange={(e) => setBoardSprintFilter(e.target.value)}
+          aria-label={getLabel('board.sprintFilter', language)}
+        >
+          <option value="all">{getLabel('board.allTasks', language)}</option>
+          <option value="backlog">{getLabel('board.backlogOnly', language)}</option>
+          {sortedSprints.map((s) => (
+            <option key={s._id} value={s._id}>
+              {s.name} ({getLabel(sprintStatusLabelKey(s.status), language)})
+            </option>
+          ))}
+        </BoardSprintSelect>
         <ToolbarSpacer />
-        <CompleteSprintBtn>
-          {getLabel('board.completeSprint', language)}
+        <CompleteSprintBtn
+          type="button"
+          disabled={!activeSprint || completingSprint}
+          onClick={handleCompleteSprint}
+          title={!activeSprint ? getLabel('board.noActiveSprint', language) : undefined}
+        >
+          {completingSprint ? getLabel('common.loading', language) : getLabel('board.completeSprint', language)}
         </CompleteSprintBtn>
-        <GroupButton>
+        <GroupButton type="button">
           {getLabel('board.group', language)} ▾
         </GroupButton>
-        <ToolbarIcon>📊</ToolbarIcon>
-        <ToolbarIcon>⚙️</ToolbarIcon>
-        <ToolbarIcon>•••</ToolbarIcon>
+        <ToolbarIcon type="button">📊</ToolbarIcon>
+        <ToolbarIcon type="button">⚙️</ToolbarIcon>
+        <ToolbarIcon type="button">•••</ToolbarIcon>
       </BoardToolbar>
 
       <DragDropContext onDragEnd={handleDragEnd}>
@@ -90,7 +153,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ onEditTask, onDeleteTask, onCreat
 
                     <ColumnBody>
                       {status === TaskStatus.TODO && (
-                        <CreateInlineBtn onClick={onCreateTask}>
+                        <CreateInlineBtn type="button" onClick={onCreateTask}>
                           {getLabel('board.create', language)}
                         </CreateInlineBtn>
                       )}
@@ -123,7 +186,7 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ onEditTask, onDeleteTask, onCreat
               </Droppable>
             );
           })}
-          <AddColumnButton>+</AddColumnButton>
+          <AddColumnButton type="button">+</AddColumnButton>
         </BoardContainer>
       </DragDropContext>
     </BoardWrapper>
