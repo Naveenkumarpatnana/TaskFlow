@@ -27,6 +27,10 @@ import { useSprintStore } from '@/stores/sprintStore';
 import { getLabel } from '@/i18n/translator';
 import { getInitials, formatDateShort, formatDateRange, getStatusBgColor, getTaskTypeIcon } from '@/utils/helpers';
 import { ITask, ITaskUser } from '@/types/task.types';
+import { UserRole } from '@/types/user.types';
+import Modal from '@/components/common/Modal';
+import Input from '@/components/common/Input';
+import Button from '@/components/common/Button';
 
 const BACKLOG_DROPPABLE_ID = 'backlog';
 
@@ -76,6 +80,10 @@ const BacklogView: React.FC<BacklogViewProps> = ({
   const [toolbarMenuOpen, setToolbarMenuOpen] = useState(false);
   const [contextTaskId, setContextTaskId] = useState<string | null>(null);
   const [openSprintMenuId, setOpenSprintMenuId] = useState<string | null>(null);
+  
+  const [isCreateSprintModalOpen, setIsCreateSprintModalOpen] = useState(false);
+  const [newSprintName, setNewSprintName] = useState('');
+  const [newSprintStartDate, setNewSprintStartDate] = useState('');
 
   useEffect(() => {
     fetchSprints();
@@ -130,12 +138,23 @@ const BacklogView: React.FC<BacklogViewProps> = ({
     });
   };
 
-  const handleCreateSprint = async (e: React.MouseEvent) => {
+  const handleOpenCreateSprintModal = (e: React.MouseEvent) => {
     e.stopPropagation();
+    setNewSprintName('');
+    setNewSprintStartDate('');
+    setIsCreateSprintModalOpen(true);
+  };
+
+  const handleSubmitCreateSprint = async () => {
     if (creatingSprint) return;
     setCreatingSprint(true);
     try {
-      await createSprint();
+      const payload: any = {};
+      if (newSprintName.trim()) payload.name = newSprintName.trim();
+      if (newSprintStartDate) payload.startDate = newSprintStartDate;
+      
+      await createSprint(payload);
+      setIsCreateSprintModalOpen(false);
     } finally {
       setCreatingSprint(false);
     }
@@ -461,13 +480,14 @@ const BacklogView: React.FC<BacklogViewProps> = ({
                 <StatusDot $color="var(--jira-status-inprogress)" $count={0}>0</StatusDot>
                 <StatusDot $color="var(--jira-status-done)" $count={0}>0</StatusDot>
               </StatusDots>
-              <SprintButton
-                type="button"
-                disabled={creatingSprint}
-                onClick={handleCreateSprint}
-              >
-                {creatingSprint ? getLabel('common.loading', language) : getLabel('backlog.createSprint', language)}
-              </SprintButton>
+              {(user?.role === UserRole.ADMIN || user?.role === UserRole.MANAGER) && (
+                <SprintButton
+                  type="button"
+                  onClick={handleOpenCreateSprintModal}
+                >
+                  {getLabel('backlog.createSprint', language)}
+                </SprintButton>
+              )}
             </SprintActions>
           </SprintHeader>
 
@@ -503,6 +523,37 @@ const BacklogView: React.FC<BacklogViewProps> = ({
           <span>{getLabel('backlog.estimate', language)}: 0 of 0</span>
         </BottomStats>
       </BacklogContainer>
+
+      <Modal
+        isOpen={isCreateSprintModalOpen}
+        onClose={() => setIsCreateSprintModalOpen(false)}
+        title={getLabel('backlog.createSprint', language) || 'Create Sprint'}
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', width: '100%' }}>
+            <Button variant="ghost" onClick={() => setIsCreateSprintModalOpen(false)}>
+              {getLabel('common.cancel', language) || 'Cancel'}
+            </Button>
+            <Button variant="primary" onClick={handleSubmitCreateSprint} isLoading={creatingSprint}>
+              {getLabel('common.save', language) || 'Save'}
+            </Button>
+          </div>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '8px' }}>
+          <Input
+            label={getLabel('backlog.sprintName', language) || 'Sprint Name'}
+            placeholder="e.g. Sprint 1"
+            value={newSprintName}
+            onChange={(e) => setNewSprintName(e.target.value)}
+          />
+          <Input
+            label={getLabel('backlog.startDate', language) || 'Start Date'}
+            type="date"
+            value={newSprintStartDate}
+            onChange={(e) => setNewSprintStartDate(e.target.value)}
+          />
+        </div>
+      </Modal>
     </DragDropContext>
   );
 };
